@@ -1,7 +1,9 @@
+#include <cstddef>
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 #include <cmath>
 #include <iostream>
+#include <algorithm>
 
 namespace py = pybind11;
 
@@ -33,6 +35,48 @@ void softmax_regression_epoch_cpp(const float *X, const unsigned char *y,
      */
 
     /// BEGIN YOUR CODE
+    for (size_t start = 0; start < m; start += batch) {
+        size_t B = std::min(batch, m - start);
+        float *logits = new float[B * k];
+
+        // logits = Xb @ theta
+        for (size_t i = 0; i < B; i++) {
+            for (size_t j = 0; j < k; j++) {
+                logits[i * k + j] = 0;
+                for (size_t p = 0; p < n; p++) {
+                    logits[i * k + j] += X[(start + i) * n + p] * theta[p * k + j];
+                }
+            }
+        }
+        
+        for (size_t i = 0; i < B; i++) {
+            // SoftMax for logits
+            float sum = 0;
+            for (size_t j = 0; j < k; j++) {
+                logits[i * k + j] = exp(logits[i * k + j]);
+                sum += logits[i * k + j];
+            }
+            for (size_t j = 0; j < k; j++) logits[i * k + j] /= sum;
+
+            // decrease I_y
+            logits[i * k + y[start + i]] -= 1;
+        }
+
+        // gradients
+        for (size_t j = 0; j < n; j++) {
+            for (size_t p = 0; p < k; p++) {
+                float grad = 0;
+                for (size_t i = 0; i < B; i++) {
+                    grad += X[(start + i) * n + j] * logits[i * k + p];
+                }
+                grad /= B;
+                theta[j * k + p] -= lr * grad;
+            }
+        }
+
+        delete []logits;
+    }
+    
 
     /// END YOUR CODE
 }

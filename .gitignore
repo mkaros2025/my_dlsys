@@ -1,0 +1,34 @@
+# Python bytecode and test caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Native build artifacts
+*.so
+*.o
+*.out
+build/
+dist/
+*.egg-info/
+
+# Editor and OS local state
+.vscode/
+.idea/
+.clangd
+.DS_Store
+*~

@@ -19,8 +19,9 @@ def add(x, y):
     Return:
         Sum of x + y
     """
+
     ### BEGIN YOUR CODE
-    pass
+    return x + y
     ### END YOUR CODE
 
 
@@ -48,7 +49,17 @@ def parse_mnist(image_filename, label_filename):
                 for MNIST will contain the values 0-9.
     """
     ### BEGIN YOUR CODE
-    pass
+    with gzip.open(image_filename, "rb") as f:
+        magic, num_images, rows, cols = struct.unpack(">IIII", f.read(16))
+        images = np.frombuffer(f.read(), dtype=np.uint8)
+        X = images.reshape(num_images, rows * cols)
+        X = X.astype(np.float32) / 255.0
+
+    with gzip.open(label_filename, "rb") as f:
+        magic, num_labels = struct.unpack(">II", f.read(8))
+        y = np.frombuffer(f.read(), dtype=np.uint8)
+
+    return X, y
     ### END YOUR CODE
 
 
@@ -68,7 +79,13 @@ def softmax_loss(Z, y):
         Average softmax loss over the sample.
     """
     ### BEGIN YOUR CODE
-    pass
+    exp_Z = np.exp(Z)
+    sum_exp = np.sum(exp_Z, axis = 1)
+    log_sum_exp = np.log(sum_exp)
+    Z_y = Z[np.arange(Z.shape[0]), y]
+    losses = np.mean(log_sum_exp - Z_y)
+
+    return losses
     ### END YOUR CODE
 
 
@@ -91,7 +108,17 @@ def softmax_regression_epoch(X, y, theta, lr = 0.1, batch=100):
         None
     """
     ### BEGIN YOUR CODE
-    pass
+    for start in range(0, X.shape[0], batch):
+        Xb = X[start: start + batch]
+        yb = y[start: start + batch]
+        logits = Xb @ theta
+        exp_logits = np.exp(logits)
+        # Sum each row's class scores. keepdims=True keeps a (batch, 1) column
+        # so exp_logits / sum_exp divides every row by its own sum.
+        sum_exp = np.sum(exp_logits, axis = 1, keepdims = True)
+        probs = exp_logits / sum_exp
+        probs[np.arange(yb.shape[0]), yb] -= 1
+        theta -= lr * Xb.T @ probs / Xb.shape[0]     
     ### END YOUR CODE
 
 
@@ -118,7 +145,23 @@ def nn_epoch(X, y, W1, W2, lr = 0.1, batch=100):
         None
     """
     ### BEGIN YOUR CODE
-    pass
+    for start in range(0, X.shape[0], batch):
+        Xb = X[start: start + batch]
+        yb = y[start: start + batch]
+        hidden = np.maximum(Xb @ W1, 0)
+        logits = hidden @ W2
+
+        exp_logits = np.exp(logits)
+        sum_exp = np.sum(exp_logits, axis = 1, keepdims = True)
+        G2 = exp_logits / sum_exp
+
+        G2[np.arange(yb.shape[0]), yb] -= 1
+        grad_W2 = hidden.T @ G2 / Xb.shape[0]
+        G1 = (hidden > 0) * (G2 @ W2.T)
+        grad_W1 = Xb.T @ G1 / Xb.shape[0]
+
+        W1 -= lr * grad_W1
+        W2 -= lr * grad_W2
     ### END YOUR CODE
 
 
