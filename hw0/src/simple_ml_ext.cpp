@@ -62,7 +62,7 @@ void softmax_regression_epoch_cpp(const float *X, const unsigned char *y,
             logits[i * k + y[start + i]] -= 1;
         }
 
-        // gradients
+        // gradients and update theta
         for (size_t j = 0; j < n; j++) {
             for (size_t p = 0; p < k; p++) {
                 float grad = 0;
@@ -76,8 +76,6 @@ void softmax_regression_epoch_cpp(const float *X, const unsigned char *y,
 
         delete []logits;
     }
-    
-
     /// END YOUR CODE
 }
 

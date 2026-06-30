@@ -18,6 +18,9 @@ ENV/
 # Jupyter
 .ipynb_checkpoints/
 
+# Local learning notes
+local_notes/
+
 # Native build artifacts
 *.so
 *.o
