@@ -262,7 +262,17 @@ class NDArray:
         """
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        assert prod(self.shape) == prod(new_shape), "Total size must match"
+        assert self.is_compact(), "Matrix must be compact to reshape without copy"
+
+        new_strides = self.compact_strides(new_shape)
+        return NDArray.make(
+            shape=new_shape,
+            strides=new_strides,
+            device=self.device,
+            handle=self._handle,
+            offset=self._offset,
+        )
         ### END YOUR SOLUTION
 
     def permute(self, new_axes: tuple[int, ...]) -> "NDArray":
@@ -287,7 +297,16 @@ class NDArray:
         """
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        new_shape = tuple([self.shape[i] for i in new_axes])
+        new_strides = tuple([self.strides[i] for i in new_axes])
+
+        return NDArray.make(
+            shape=new_shape,
+            strides=new_strides,
+            device=self.device,
+            handle=self._handle,
+            offset=self._offset
+        )
         ### END YOUR SOLUTION
 
     def broadcast_to(self, new_shape: tuple[int, ...]) -> "NDArray":
@@ -311,8 +330,23 @@ class NDArray:
         """
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION]
+        new_strides = []
+        for dim, new_dim, stride in zip(self.shape, new_shape, self.strides):
+            if dim == new_dim:
+                new_strides.append(stride)
+            elif dim == 1:
+                new_strides.append(0)
+            else:
+                assert False, f"Cannot broadcast dimension {dim} to {new_dim}"
+
+        return NDArray.make(
+            shape=new_shape,
+            strides=tuple(new_strides),
+            device=self.device,
+            handle=self._handle,
+            offset=self._offset
+        )
+        ### END YOUR SOLUTION
 
     ### Get and set elements
 
@@ -378,7 +412,19 @@ class NDArray:
         assert len(slices) == self.ndim, "Need indexes equal to number of dimensions"
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        new_offset = self._offset
+        for s, stride in zip(slices, self.strides):
+            new_offset += s.start * stride
+        new_shape = tuple([(s.stop - s.start + s.step - 1) // s.step for s in slices])
+        new_strides = tuple([stride * s.step for s, stride in zip(slices, self.strides)])
+
+        return  NDArray.make(
+            shape=new_shape,
+            strides=new_strides,
+            device=self.device,
+            handle=self._handle,
+            offset=new_offset
+        )
         ### END YOUR SOLUTION
 
     def __setitem__(self, idxs: int | slice | tuple[int | slice, ...], other: Union["NDArray", float]) -> None:
@@ -567,6 +613,7 @@ class NDArray:
                 axis = axis[0]
 
             view = self.permute(
+                # move the target axis to the tail
                 tuple([a for a in range(self.ndim) if a != axis]) + (axis,)
             )
             out = NDArray.make(
