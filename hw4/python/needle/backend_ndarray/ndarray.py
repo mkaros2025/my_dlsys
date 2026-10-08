@@ -262,7 +262,17 @@ class NDArray:
         """
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        assert prod(self.shape) == prod(new_shape), "Total size must match"
+        assert self.is_compact(), "Matrix must be compact to reshape without copy"
+
+        new_strides = self.compact_strides(new_shape)
+        return NDArray.make(
+            shape=new_shape,
+            strides=new_strides,
+            device=self.device,
+            handle=self._handle,
+            offset=self._offset,
+        )
         ### END YOUR SOLUTION
 
     def permute(self, new_axes: tuple[int, ...]) -> "NDArray":
@@ -287,7 +297,16 @@ class NDArray:
         """
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        new_shape = tuple([self.shape[i] for i in new_axes])
+        new_strides = tuple([self.strides[i] for i in new_axes])
+
+        return NDArray.make(
+            shape=new_shape,
+            strides=new_strides,
+            device=self.device,
+            handle=self._handle,
+            offset=self._offset
+        )
         ### END YOUR SOLUTION
 
     def broadcast_to(self, new_shape: tuple[int, ...]) -> "NDArray":
@@ -311,8 +330,23 @@ class NDArray:
         """
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION]
+        new_strides = []
+        for dim, new_dim, stride in zip(self.shape, new_shape, self.strides):
+            if dim == new_dim:
+                new_strides.append(stride)
+            elif dim == 1:
+                new_strides.append(0)
+            else:
+                assert False, f"Cannot broadcast dimension {dim} to {new_dim}"
+
+        return NDArray.make(
+            shape=new_shape,
+            strides=tuple(new_strides),
+            device=self.device,
+            handle=self._handle,
+            offset=self._offset
+        )
+        ### END YOUR SOLUTION
 
     ### Get and set elements
 
@@ -378,7 +412,19 @@ class NDArray:
         assert len(slices) == self.ndim, "Need indexes equal to number of dimensions"
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        new_offset = self._offset
+        for s, stride in zip(slices, self.strides):
+            new_offset += s.start * stride
+        new_shape = tuple([(s.stop - s.start + s.step - 1) // s.step for s in slices])
+        new_strides = tuple([stride * s.step for s, stride in zip(slices, self.strides)])
+
+        return NDArray.make(
+            shape=new_shape,
+            strides=new_strides,
+            device=self.device,
+            handle=self._handle,
+            offset=new_offset
+        )
         ### END YOUR SOLUTION
 
     def __setitem__(self, idxs: int | slice | tuple[int | slice, ...], other: Union["NDArray", float]) -> None:
@@ -593,7 +639,23 @@ class NDArray:
         Note: compact() before returning.
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        axes_set = set(axes)
+        new_strides = list(self.strides)
+        new_offset = self._offset
+
+        for i in range(self.ndim):
+            if i in axes_set:
+                new_strides[i] = -self.strides[i]
+                new_offset += (self.shape[i] - 1) * self.strides[i]
+
+        flipped = NDArray.make(
+            self.shape,
+            strides=tuple(new_strides),
+            device=self.device,
+            handle=self._handle,
+            offset=new_offset
+        )
+        return flipped.compact()
         ### END YOUR SOLUTION
 
     def pad(self, axes: tuple[tuple[int, int], ...]) -> "NDArray":
@@ -603,7 +665,13 @@ class NDArray:
         axes = ( (0, 0), (1, 1), (0, 0)) pads the middle axis with a 0 on the left and right side.
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        new_shape = tuple(s + p[0] + p[1] for s, p in zip(self.shape, axes))
+        out = NDArray.make(new_shape, device=self.device)
+        out.fill(0)
+
+        slices = tuple(slice(p[0], p[0] + s) for s, p in zip(self.shape, axes))
+        out[slices] = self
+        return out
         ### END YOUR SOLUTION
 
 def array(a: Any, dtype: str = "float32", device: BackendDevice | None = None) -> NDArray:

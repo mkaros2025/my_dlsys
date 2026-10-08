@@ -35,3 +35,8 @@ dist/
 .clangd
 .DS_Store
 *~
+
+/hw0/data/
+/hw1/data/
+/hw2/data/
+/hw4/data/
