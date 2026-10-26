@@ -69,8 +69,8 @@ def softmax_loss(Z, y):
     of the log-sum-exp computation, but can just compute this directly.
 
     Args:
-        Z (np.ndarray[np.float32]): 2D numpy array of shape
-            (batch_size, num_classes), containing the logit predictions for
+        Z (np.ndarray[np.float32]): 2D numpy array of shape (batch_size, num_classes)
+           , containing the logit predictions for
             each class.
         y (np.ndarray[np.uint8]): 1D numpy array of shape (batch_size, )
             containing the true label of each example.
