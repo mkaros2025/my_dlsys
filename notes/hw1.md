@@ -196,7 +196,7 @@ def nn_epoch(X, y, W1, W2, lr=0.1, batch=100):
 
     for start in range(0, num_examples, batch):
         end = min(start + batch, X.shape[0])
-        # 1. 把输入数据打包成 Tensor（输入数据不需要算梯度）
+        # 1. 把输入数据打包成 Tensor 方便 Needle 处理，输入数据不需要算梯度
         Xb = ndl.Tensor(X[start:end], requires_grad=False)
         yb = y[start:end]
         yb_one_hot = np.zeros((yb.shape[0], num_classes))
@@ -212,18 +212,20 @@ def nn_epoch(X, y, W1, W2, lr=0.1, batch=100):
         # 4. 一键反向传播：自动算出 W1.grad 和 W2.grad
         loss.backward()
 
-        # 5. 更新权重
+        # 5. 更新权重，这里转成 numpy 做计算，防止这个计算也进入计算图
         W1 = ndl.Tensor(W1.numpy() - lr * W1.grad.numpy())
         W2 = ndl.Tensor(W2.numpy() - lr * W2.grad.numpy())
 
     return W1, W2
 ```
 
-##### 3. 踩坑点：为什么更新权重非得用 `.numpy()` 重新包一下？
-在 PyTorch 里我们更新参数一般用优化器 `optimizer.step()`，或者包在 `with torch.no_grad():` 里。
-但我们自己写的 needle 目前还没有写优化器，也不支持原地修改（in-place 操作）。
-如果直接写 `W1 = W1 - lr * W1.grad`，needle 会以为**这个减法也是网络模型的一部分**，把这步减法也悄悄建成了计算图节点。这样每训一个 batch，计算图就越来越大，跑几个 batch 内存就直接被撑爆了。
-所以必须先用 `.numpy()` 把纯数值抠出来算减法，减完之后再用 `Tensor(...)` 重新包起来。这样它就是一个干干净净的初始参数，不会拖家带口带着上一个 batch 的计算图。
+##### 3. 为什么更新权重不能进入计算图？
+
+在更新权重时，绝不能直接写 `W1 = W1 - lr * W1.grad` 让更新操作进入计算图，原因有两个：
+- **内存暴涨（OOM）**：计算图由节点指针串联。如果更新进了图，新权重就会一直连着上一个 batch 的整个计算图，导致旧数据和中间变量永远无法被释放。跑几个 batch 内存就会被耗尽。
+- **求导逻辑混乱**：计算图只需计算单次 batch 内 loss 对当前参数的梯度。如果更新进了图，下一个 batch 反向传播时，引擎还会顺着更新公式跨 batch 向前求导，彻底违背了 SGD 每次基于固定参数迭代的数学逻辑。
+
+因此，代码里通过 `.numpy()` 取出数值做减法再包回 `ndl.Tensor`，就是为了把更新操作移到计算图之外，确保新权重是一个干净独立的叶子节点。
 
 
 
