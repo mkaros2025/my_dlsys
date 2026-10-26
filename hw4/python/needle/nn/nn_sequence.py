@@ -194,19 +194,19 @@ class LSTMCell(Module):
         bound = 1.0 / math.sqrt(hidden_size)
 
         self.W_ih = Parameter(
-            input.rand(input_size, 4 * hidden_size, low=-bound, high=bound, device=device, dtype=dtype)
+            init.rand(input_size, 4 * hidden_size, low=-bound, high=bound, device=device, dtype=dtype)
         )
         self.W_hh = Parameter(
-            input.rand(hidden_size, 4 * hidden_size, low=-bound, high=bound, device=device, dtype=dtype)
+            init.rand(hidden_size, 4 * hidden_size, low=-bound, high=bound, device=device, dtype=dtype)
         )
 
         self.hidden_size = hidden_size
         if bias:
             self.bias_ih = Parameter(
-                init.rand(hidden_size, low=-bound, high=bound, device=device, dtype=dtype)
+                init.rand(4 * hidden_size, low=-bound, high=bound, device=device, dtype=dtype)
             )
             self.bias_hh = Parameter(
-                init.rand(hidden_size, low=-bound, high=bound, device=device, dtype=dtype)
+                init.rand(4 * hidden_size, low=-bound, high=bound, device=device, dtype=dtype)
             )
         else:
             self.bias_ih = None
@@ -252,7 +252,11 @@ class LSTMCell(Module):
         f = sigmoid(f)
         g = ops.tanh(g)
         o = sigmoid(o)
-        
+
+        c_new = f * c0 + i * g
+        h_new = o * ops.tanh(c_new)
+
+        return h_new, c_new
         ### END YOUR SOLUTION
 
 
@@ -280,7 +284,15 @@ class LSTM(Module):
             of shape (4*hidden_size,).
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.num_layers = num_layers
+        self.hidden_size = hidden_size
+        self.lstm_cells = []
+
+        for k in range(num_layers):
+            in_size = input_size if k == 0 else hidden_size
+            self.lstm_cells.append(
+                LSTMCell(in_size, hidden_size, bias=bias, device=device, dtype=dtype)
+            )
         ### END YOUR SOLUTION
 
     def forward(self, X, h=None):
@@ -301,7 +313,36 @@ class LSTM(Module):
             h_n of shape (num_layers, bs, hidden_size) containing the final hidden cell state for each element in the batch.
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+       
+        
+        if h is not None:
+            h0_list = list(ops.split(h[0], axis=0))
+            c0_list = list(ops.split(h[1], axis=0))
+        else:
+            h0_list = [None] * self.num_layers
+            c0_list = [None] * self.num_layers
+
+        inputs = list(ops.split(X, axis=0))
+        h_n_list, c_n_list = [], []
+
+        for l in range(self.num_layers):
+            h = h0_list[l]
+            c = c0_list[l]
+            layer_outputs = []
+            cell = self.lstm_cells[l]
+            
+            for t in range(len(inputs)):
+                h, c = cell(inputs[t], (h, c) if h is not None else None)
+                layer_outputs.append(h)
+            inputs = layer_outputs
+            h_n_list.append(h)
+            c_n_list.append(c)
+
+        output = ops.stack(inputs, axis=0)
+        h_n = ops.stack(h_n_list, axis=0)
+        c_n = ops.stack(c_n_list, axis=0)
+
+        return output, (h_n, c_n)
         ### END YOUR SOLUTION
 
 class Embedding(Module):
@@ -319,7 +360,11 @@ class Embedding(Module):
             initialized from N(0, 1).
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.num_embeddings = num_embeddings
+        self.embedding_dim = embedding_dim
+        self.weight = Parameter(
+            init.randn(num_embeddings, embedding_dim, device=device, dtype=dtype)
+        )
         ### END YOUR SOLUTION
 
     def forward(self, x: Tensor) -> Tensor:
@@ -333,5 +378,11 @@ class Embedding(Module):
         output of shape (seq_len, bs, embedding_dim)
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        oh = init.one_hot(self.num_embeddings, x, device=self.weight.device, dtype=self.weight.dtype)
+
+        seq_len, bs = x.shape
+        oh_2d = oh.reshape((seq_len * bs, self.num_embeddings))
+        out_2d = oh_2d @ self.weight
+
+        return out_2d.reshape((seq_len, bs, self.embedding_dim))
         ### END YOUR SOLUTION

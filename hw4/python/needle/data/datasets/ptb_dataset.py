@@ -25,7 +25,12 @@ class Dictionary(object):
         Returns the word's unique ID.
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        if word not in self.word2idx:
+            new_id = len(self.idx2word)
+            self.word2idx[word] = new_id
+            self.idx2word.append(word)
+
+        return self.word2idx[word]
         ### END YOUR SOLUTION
 
     def __len__(self):
@@ -33,7 +38,7 @@ class Dictionary(object):
         Returns the number of unique words in the dictionary.
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return len(self.word2idx)
         ### END YOUR SOLUTION
 
 
@@ -60,7 +65,15 @@ class Corpus(object):
         ids: List of ids
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        ids = []
+        with open(path, 'r', encoding='utf-8') as f:
+            for i, line in enumerate(f):
+                if max_lines and i >= max_lines:
+                    break
+                words = line.strip().split() + ['<eos>']
+                for word in words:
+                    ids.append(self.dictionary.add_word(word))
+        return ids
         ### END YOUR SOLUTION
 
 
@@ -81,7 +94,11 @@ def batchify(data, batch_size, device, dtype):
     Returns the data as a numpy array of shape (nbatch, batch_size).
     """
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    data = np.array(data, dtype=np.int64)
+    nbatch = len(data) // batch_size
+    data = data[: nbatch * batch_size]
+
+    return data.reshape((batch_size, nbatch)).T
     ### END YOUR SOLUTION
 
 
@@ -105,5 +122,11 @@ def get_batch(batches, i, bptt, device=None, dtype=None):
     target - Tensor of shape (bptt*bs,) with cached data as NDArray
     """
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    data = batches[i : i + bptt]
+    target = batches[i + 1 : i + 1 + bptt]
+
+    return (
+        Tensor(data, device=device, dtype=dtype),
+        Tensor(target.flatten(), device=device, dtype=dtype)
+    )    
     ### END YOUR SOLUTION

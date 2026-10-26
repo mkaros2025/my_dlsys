@@ -218,7 +218,43 @@ def epoch_general_ptb(data, model, seq_len=40, loss_fn=nn.SoftmaxLoss(), opt=Non
     """
     np.random.seed(4)
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    if opt is not None:
+        model.train()
+    else:
+        model.eval()
+
+    total_loss = 0.0
+    total_correct = 0.0
+    total_samples = 0
+    h = None
+
+    device = model.parameters()[0].device if len(model.parameters()) > 0 else None
+
+    for i in range(0, data.shape[0], seq_len):
+        cur_seq_len = min(seq_len, data.shape[0] - 1 - i)
+        X, y = ndl.data.get_batch(data, i, cur_seq_len, device=device, dtype=dtype)
+        logits, h = model(X, h)
+
+        if h is not None:
+            if isinstance(h, tuple):
+                h = (h[0].detach(), h[1].detach())
+            else:
+                h = h.detach()
+        loss = loss_fn(logits, y)
+
+        if opt is not None:
+            opt.reset_grad()
+            loss.backward()
+            opt.step()
+
+        batch_tokens = y.shape[0]
+        total_samples += batch_tokens
+        total_loss += loss.numpy() * batch_tokens
+
+        preds = np.argmax(logits.numpy(), axis=1)
+        total_correct += np.sum(preds == y.numpy())
+
+    return total_correct / total_samples, total_loss / total_samples
     ### END YOUR SOLUTION
 
 
@@ -245,7 +281,13 @@ def train_ptb(model, data, seq_len=40, n_epochs=1, optimizer=ndl.optim.SGD,
     """
     np.random.seed(4)
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    loss_func = loss_fn() if isinstance(loss_fn, type) else loss_fn
+    opt = optimizer(model.parameters(), lr=lr, weight_decay=weight_decay)
+
+    for epoch in range(n_epochs):
+        avg_acc, avg_loss = epoch_general_ptb(data, model, seq_len, loss_fn=loss_func, opt=opt, clip=clip, device=device, dtype=dtype)
+
+    return avg_acc, avg_loss
     ### END YOUR SOLUTION
 
 def evaluate_ptb(model, data, seq_len=40, loss_fn=nn.SoftmaxLoss,
@@ -265,7 +307,8 @@ def evaluate_ptb(model, data, seq_len=40, loss_fn=nn.SoftmaxLoss,
     """
     np.random.seed(4)
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    loss_func = loss_fn() if isinstance(loss_fn, type) else loss_fn
+    return epoch_general_ptb(data, model, seq_len, loss_fn=loss_func, opt=None, device=device, dtype=dtype)
     ### END YOUR SOLUTION
 
 ### CODE BELOW IS FOR ILLUSTRATION, YOU DO NOT NEED TO EDIT
